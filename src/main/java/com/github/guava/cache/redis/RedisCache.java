@@ -117,10 +117,25 @@ public class RedisCache<K, V> extends AbstractLoadingCache<K, V> implements Load
         }
     }
 
+    public List<K> getAllKeys(String pattern) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            Set<byte[]> redisKeys = jedis.keys(pattern.getBytes());
+
+            List<K> keysList = new ArrayList<>();
+            Iterator<byte[]> it = redisKeys.iterator();
+            while (it.hasNext()) {
+                byte[] data = (byte[]) it.next();
+                keysList.add((K) keySerializer.deserialize(data));
+            }
+            return keysList;
+        }
+    }
+
     @Override
     public void put(K key, V value) {
         byte[] keyBytes = Bytes.concat(keyPrefix, keySerializer.serialize(key));
         byte[] valueBytes = valueSerializer.serialize(value);
+
 
         try (Jedis jedis = jedisPool.getResource()) {
             if (expiration > 0) {
@@ -128,6 +143,8 @@ public class RedisCache<K, V> extends AbstractLoadingCache<K, V> implements Load
             } else {
                 jedis.set(keyBytes, valueBytes);
             }
+        }catch(Exception e){
+            logger.info("ERROR -- " + e.getMessage());
         }
     }
 
